@@ -64,18 +64,37 @@ minirick version
 minirick login
 ```
 
-Te va a pedir tu email. Recibirás un link mágico para confirmar.
+Te va a pedir tu email. Recibirás en segundos un **código de 6 dígitos** en tu
+correo. Copia el código y pégalo en la terminal cuando lo pida.
+
+Si prefieres un solo paso:
+
+```bash
+minirick login --email tucorreo@empresa.com
+```
+
+Para cerrar sesión:
+
+```bash
+minirick logout
+```
 
 ---
 
 ## Uso diario
 
 ```bash
-minirick              # Abre el dashboard con la tarea activa
-minirick list         # Lista todas las tareas
-minirick sync         # Actualiza cambios desde el servidor
+minirick              # Abre el dashboard con la tarea activa (Fase 3)
+minirick list         # Lista todas las tareas desde Supabase
+minirick sync         # Refresca el cache local desde el servidor
 minirick --help       # Ver todos los comandos
 ```
+
+`minirick list` trae las tareas vivas del equipo ordenadas por última
+modificación. `minirick sync` hace lo mismo pero además deja una copia local en
+`~/Library/Application Support/minirick/cache/tasks.json` (Mac) o
+`%LOCALAPPDATA%\minirick\cache\tasks.json` (Windows) para uso offline del
+dashboard.
 
 ---
 
@@ -97,5 +116,10 @@ Corre `pipx ensurepath`, cierra la terminal y vuélvela a abrir.
 **"Python no se reconoce como un comando"** (Windows)
 Reinstala Python marcando "Add Python to PATH".
 
-**No me llega el link de login**
-Revisa spam. Si no aparece en 2 minutos, dile al admin (Rick) que te reenvíe la invitación.
+**No me llega el código de login**
+Revisa spam. Si no aparece en 2 minutos, dile al admin (Rick) que te reenvíe la
+invitación.
+
+**"No hay sesión activa"** al correr `list` o `sync`
+Corre `minirick login` primero. Si ya lo hiciste y sigue fallando, tu sesión
+pudo haber expirado — repite el login.
