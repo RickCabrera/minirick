@@ -1,7 +1,19 @@
 {
   "permissions": {
     "allow": [
-      "Bash(.venv/Scripts/python.exe *)"
+      "Bash(.venv/Scripts/python.exe *)",
+      "Bash(pytest --tb=short)",
+      "Bash(ruff check *)",
+      "Bash(python -m pytest --tb=short)",
+      "Bash(python -m ruff check .)",
+      "Bash(grep -oE '#[0-9a-fA-F]{3,8}' src/minirick/dashboard/ui/index.html)",
+      "Bash(grep -oE '#[0-9a-fA-F]{3,8}' src/minirick/dashboard/ui/app.js)",
+      "PowerShell(if \\(Test-Path \"tests/test_dashboard_api.py\"\\) { $s = \\(Get-Item \"tests/test_dashboard_api.py\"\\).Length; \"OK tests/test_dashboard_api.py size=$s\" } else { \"MISSING tests/test_dashboard_api.py\" })",
+      "PowerShell(if \\(Test-Path \"src/minirick/dashboard/service.py\"\\) { $s=\\(Get-Item \"src/minirick/dashboard/service.py\"\\).Length; \"OK service.py size=$s\" } else { \"MISSING service.py\" })",
+      "PowerShell(if \\(Test-Path \"src/minirick/dashboard/window.py\"\\) { $s=\\(Get-Item \"src/minirick/dashboard/window.py\"\\).Length; \"OK window.py size=$s\" } else { \"MISSING window.py\" })",
+      "PowerShell(if \\(Test-Path \"src/minirick/dashboard/ui/app.js\"\\) { $s=\\(Get-Item \"src/minirick/dashboard/ui/app.js\"\\).Length; \"OK app.js size=$s\" } else { \"MISSING app.js\" })",
+      "PowerShell(if \\(Test-Path \"src/minirick/dashboard/window.py\"\\) { $s=\\(Get-Item \"src/minirick/dashboard/window.py\"\\).Length; \"OK window.py size=$s\" } else { \"MISSING\" }; Select-String -Path \"src/minirick/dashboard/window.py\" -Pattern \"WINDOW_WIDTH|WINDOW_HEIGHT\" | ForEach-Object { \"L$\\($_.LineNumber\\): $\\($_.Line.Trim\\(\\)\\)\" })",
+      "PowerShell(Test-Path *)"
     ]
   }
 }

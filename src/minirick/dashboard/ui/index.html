@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>minirick</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <button class="sidebar-btn sidebar-avatar" id="btn-avatar" title="Usuario">
+        <span id="avatar-initial">?</span>
+      </button>
+      <button class="sidebar-btn sidebar-config" id="btn-config-side" title="Configuración">&#9881;</button>
+    </aside>
+
+    <button class="sidebar-toggle" id="sidebar-toggle" title="Ocultar sidebar">&#9664;</button>
+
+    <main class="main-area">
+      <div class="window-controls">
+        <button id="btn-minimize" title="Minimizar">_</button>
+        <button id="btn-close" title="Cerrar">&#10005;</button>
+      </div>
+
+      <section id="state-loading" class="state">
+        <div class="state-msg">
+          <span>&gt;&nbsp;</span><span class="cursor">fetching active task...</span>
+        </div>
+      </section>
+
+      <section id="state-error" class="state" hidden>
+        <div class="state-msg state-msg-error">
+          <span>&gt; connection error</span>
+        </div>
+        <div class="state-hint">run 'minirick sync' in terminal</div>
+        <div class="state-hint" id="error-detail"></div>
+      </section>
+
+      <section id="state-empty" class="state" hidden>
+        <div class="state-msg">
+          <span>&gt; no active task</span>
+        </div>
+        <div class="state-hint">ask your admin to set one</div>
+      </section>
+
+      <section id="state-task" hidden>
+        <div class="grid-top">
+          <div class="panel panel-task">
+            <div class="section-header">
+              <span class="section-header-label">ACTIVE TASK</span>
+            </div>
+            <div class="task-title" id="task-title"></div>
+            <div class="status-badge" id="task-status"></div>
+            <div class="section-subheader">
+              <span class="section-header-label">SUMMARY</span>
+            </div>
+            <div class="task-summary" id="task-summary"></div>
+          </div>
+
+          <div class="panel panel-tools">
+            <div class="section-header collapsible" data-target="task-tools">
+              <span class="section-header-label">TOOLS (<span id="tools-count">0</span>)</span>
+              <span class="collapse-indicator">&#9662;</span>
+            </div>
+            <div class="task-tools" id="task-tools"></div>
+          </div>
+        </div>
+
+        <div class="panel panel-context">
+          <div class="section-header collapsible" data-target="task-context">
+            <span class="section-header-label">CONTEXT</span>
+            <span class="collapse-indicator">&#9662;</span>
+          </div>
+          <div class="task-context" id="task-context"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="footer" id="footer">
+    <span id="footer-profile">
+      <span class="footer-email" id="footer-email"></span>
+      <span class="footer-bullet"> &middot; </span>
+      <span class="footer-role" id="footer-role"></span>
+    </span>
+  </footer>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -67,10 +67,16 @@ def main(ctx: typer.Context) -> None:
     if ctx.invoked_subcommand is not None:
         return
     console.print(_banner())
-    console.print(
-        "[yellow]⚠ Dashboard aún no implementado (llega en Fase 3).[/yellow]\n"
-        "Prueba [bold]minirick --help[/bold] para ver comandos disponibles."
-    )
+    _require_session()
+    try:
+        from minirick.dashboard import launch_dashboard
+
+        launch_dashboard()
+    except typer.Exit:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        console.print(f"[red]✖ No se pudo lanzar el dashboard:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
 
 
 @app.command()
