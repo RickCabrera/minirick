@@ -142,6 +142,20 @@ Implementar:
   - Sección "Herramientas": lista de tools con icono + nombre + botón "Abrir" (stub, lanza en Fase 4).
 - Solo lectura al principio.
 
+### ✅ Fase 3.5 — Rediseño horizontal del dashboard (COMPLETADA)
+- Ventana 900x560 horizontal.
+- Sidebar colapsable 56px con avatar (inicial del email) y botón config.
+- Toggle ◀/▶ entre sidebar y main.
+- Grid 65/35 (ACTIVE TASK+SUMMARY izquierda, TOOLS derecha), CONTEXT abajo a lo ancho.
+- Botones _ ✕ flotando top-right.
+- Prefijo "> " pegado al label.
+
+### ⏳ Fase 3.6 — Bugfixes de auth y arranque (PENDIENTE)
+- Bug A: login bloquea con tokens inválidos.
+- Bug B: refresh token rotation no se persiste.
+- Bug C: mensaje "Código de 6 dígitos" incorrecto.
+- Bug D: banner siempre aparece aunque se abra dashboard.
+
 ### ⏳ Fase 4 — Launcher de herramientas
 - `src/minirick/launcher.py` — dispatcher por `tool.type` con branches Mac/Windows.
 - Detectar SO con `platform.system()`.

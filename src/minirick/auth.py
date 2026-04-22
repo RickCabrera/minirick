@@ -78,7 +78,12 @@ def logout() -> bool:
 
 
 def ensure_session() -> dict[str, Any] | None:
-    """Si hay sesión guardada, la restaura en el cliente. Retorna el dict o None."""
+    """Si hay sesión guardada, la restaura en el cliente. Retorna el dict o None.
+
+    Si Supabase rotó los tokens internamente durante `set_session`, persiste los
+    nuevos en `session.json` para evitar "Invalid Refresh Token: Already Used"
+    en la próxima carga.
+    """
     session = load_session()
     if session is None:
         return None
@@ -91,6 +96,23 @@ def ensure_session() -> dict[str, Any] | None:
         client.auth.set_session(access_token, refresh_token)
     except Exception as exc:  # noqa: BLE001
         raise AuthError(f"Sesión expirada o inválida: {exc}") from exc
+
+    # Capturar tokens rotados por supabase y persistirlos si cambiaron.
+    try:
+        fresh = client.auth.get_session()
+        fresh_session = getattr(fresh, "session", fresh)
+        if fresh_session is not None:
+            new_access = getattr(fresh_session, "access_token", None)
+            new_refresh = getattr(fresh_session, "refresh_token", None)
+            if new_access and new_refresh and (
+                new_access != access_token or new_refresh != refresh_token
+            ):
+                updated = _session_to_dict(fresh_session)
+                save_session(updated)
+                return updated
+    except Exception:  # noqa: BLE001 — no crítico si no se puede persistir
+        pass
+
     return session
 
 

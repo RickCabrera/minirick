@@ -16,7 +16,6 @@ from minirick import __version__
 from minirick.auth import (
     AuthError,
     ensure_session,
-    load_session,
     request_otp,
     save_session,
     verify_otp_code,
@@ -24,7 +23,7 @@ from minirick.auth import (
 from minirick.auth import (
     logout as auth_logout,
 )
-from minirick.config import get_cache_dir
+from minirick.config import get_cache_dir, get_session_file
 from minirick.db import get_client
 from minirick.models import Task
 
@@ -66,8 +65,22 @@ def main(ctx: typer.Context) -> None:
     """Sin subcomando: abre el dashboard con la tarea activa."""
     if ctx.invoked_subcommand is not None:
         return
-    console.print(_banner())
-    _require_session()
+
+    try:
+        session = ensure_session()
+    except AuthError as exc:
+        console.print(_banner())
+        console.print(f"[red]✖ {exc}[/red]")
+        console.print("Vuelve a iniciar sesión con [bold]minirick login[/bold].")
+        raise typer.Exit(code=1) from exc
+
+    if session is None:
+        console.print(_banner())
+        console.print("[yellow]⚠ No hay sesión activa.[/yellow]")
+        console.print("Inicia sesión con [bold]minirick login[/bold].")
+        raise typer.Exit(code=1)
+
+    console.print("[dim]> minirick dashboard abriendo...[/dim]")
     try:
         from minirick.dashboard import launch_dashboard
 
@@ -90,9 +103,17 @@ def login(
     email: str | None = typer.Option(None, "--email", "-e", help="Tu email de acceso"),
 ) -> None:
     """Inicia sesión con tu email (código OTP de 6 dígitos)."""
-    if load_session() is not None:
+    try:
+        session = ensure_session()
+    except AuthError:
+        session = None
+
+    if session is not None:
         console.print("[green]Ya hay una sesión activa.[/green] Usa [bold]logout[/bold] primero.")
         return
+
+    # Limpiar tokens inválidos si quedaron en disco.
+    get_session_file().unlink(missing_ok=True)
 
     if not email:
         email = Prompt.ask("[bold]Email[/bold]")
@@ -107,8 +128,11 @@ def login(
         console.print(f"[red]✖ {exc}[/red]")
         raise typer.Exit(code=1) from exc
 
-    console.print(f"[green]✓[/green] Te mandamos un código a [bold]{email}[/bold].")
-    token = Prompt.ask("[bold]Código de 6 dígitos[/bold]")
+    console.print(
+        f"[green]✓[/green] Código enviado a [bold]{email}[/bold]. "
+        "Revisa tu correo (incluido spam)."
+    )
+    token = Prompt.ask("[bold]Código de un solo uso[/bold]")
     token = token.strip()
 
     try:

@@ -128,3 +128,35 @@ def test_ensure_session_restores_tokens(session_file: Path) -> None:
         result = auth.ensure_session()
     assert result == {"access_token": "a", "refresh_token": "b"}
     fake_client.auth.set_session.assert_called_once_with("a", "b")
+
+
+def test_ensure_session_persists_rotated_tokens(session_file: Path) -> None:
+    """Bug B: si supabase rota los tokens en set_session, deben persistirse a disco."""
+    session_file.write_text(
+        json.dumps({"access_token": "old_a", "refresh_token": "old_r"}),
+        encoding="utf-8",
+    )
+
+    fresh_session = MagicMock(
+        access_token="new_a",
+        refresh_token="new_r",
+        expires_at=9999999999,
+        token_type="bearer",
+    )
+    fresh_session.user = MagicMock(id="uid", email="r@r.co")
+
+    fake_client = MagicMock()
+    # supabase-py retorna un wrapper con .session anidada
+    fake_client.auth.get_session.return_value = MagicMock(session=fresh_session)
+    fake_client.auth.set_session.return_value = None
+
+    with patch.object(auth, "get_client", return_value=fake_client):
+        result = auth.ensure_session()
+
+    fake_client.auth.set_session.assert_called_once_with("old_a", "old_r")
+    assert result["access_token"] == "new_a"
+    assert result["refresh_token"] == "new_r"
+
+    on_disk = json.loads(session_file.read_text(encoding="utf-8"))
+    assert on_disk["access_token"] == "new_a"
+    assert on_disk["refresh_token"] == "new_r"
