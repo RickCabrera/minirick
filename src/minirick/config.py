@@ -8,6 +8,7 @@ siguiendo convenciones de cada SO:
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from platformdirs import user_data_dir
@@ -37,3 +38,26 @@ def get_cache_dir() -> Path:
     path = get_config_dir() / "cache"
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def get_state_file() -> Path:
+    """Path al archivo de estado local (cache de última tarea auto-lanzada, etc.)."""
+    return get_config_dir() / "state.json"
+
+
+def load_state() -> dict:
+    """Lee el estado local. Retorna dict vacío si no existe o está corrupto."""
+    path = get_state_file()
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def save_state(state: dict) -> None:
+    """Persiste el estado local."""
+    get_state_file().write_text(
+        json.dumps(state, indent=2), encoding="utf-8"
+    )

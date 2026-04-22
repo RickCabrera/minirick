@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from minirick.dashboard import service
+from minirick.launcher import launch_tool
 
 
 class DashboardAPI:
@@ -43,22 +44,19 @@ class DashboardAPI:
         """Alias de get_active_task para el botón de refresh (si se añade)."""
         return self.get_active_task()
 
-    # ---------- Actions (stubs hasta Fase 4/5) ----------
+    # ---------- Actions ----------
 
     def open_tool(self, tool_index: int) -> dict[str, Any]:
-        """STUB de Fase 4 — Launcher real llega en Fase 4."""
+        """Lanza la tool en el índice dado de la tarea activa."""
         try:
-            result = service.fetch_active_task()
-            if result is None:
+            task = service.fetch_active_task()
+            if task is None:
                 return {"ok": False, "error": "No hay tarea activa"}
-            tools = result.tools
+            tools = task.tools
             if tool_index < 0 or tool_index >= len(tools):
                 return {"ok": False, "error": f"Índice fuera de rango: {tool_index}"}
             tool = tools[tool_index]
-            return {
-                "ok": False,
-                "message": f"Launcher llega en Fase 4 (tool: {tool.type})",
-            }
+            return launch_tool(tool)
         except Exception as exc:  # noqa: BLE001
             return {"ok": False, "error": str(exc)}
 

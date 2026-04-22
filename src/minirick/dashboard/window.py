@@ -33,8 +33,69 @@ def _position_top_right(window: webview.Window) -> None:
         pass
 
 
+def _maybe_auto_launch() -> list[dict]:
+    """Si la tarea activa cambió desde la última vez, auto-lanza sus tools.
+
+    Retorna lista de resultados de cada lanzamiento (para logging).
+    Nunca levanta: si algo falla, retorna lista vacía y el dashboard abre igual.
+    """
+    from rich.console import Console
+
+    from minirick.config import load_state, save_state
+    from minirick.dashboard import service
+    from minirick.launcher import launch_tool
+
+    console = Console()
+
+    try:
+        task = service.fetch_active_task()
+    except Exception:  # noqa: BLE001
+        return []
+
+    if task is None or not task.tools:
+        return []
+
+    try:
+        state = load_state()
+    except Exception:  # noqa: BLE001
+        state = {}
+
+    last_id = state.get("last_auto_launched_task_id")
+    if last_id == task.id:
+        return []
+
+    results: list[dict] = []
+    for tool in task.tools:
+        try:
+            result = launch_tool(tool)
+        except Exception as exc:  # noqa: BLE001
+            result = {"ok": False, "error": f"Error inesperado: {exc}"}
+        results.append({"tool": tool.type, **result})
+
+    if results:
+        console.print(f"[dim]> auto-launch: {len(results)} tools[/dim]")
+        for r in results:
+            icon = "✓" if r.get("ok") else "✖"
+            color = "green" if r.get("ok") else "red"
+            msg = r.get("message") or r.get("error") or ""
+            console.print(f"  [{color}]{icon}[/{color}] {r['tool']}: {msg}")
+
+    try:
+        state["last_auto_launched_task_id"] = task.id
+        save_state(state)
+    except Exception:  # noqa: BLE001
+        pass
+
+    return results
+
+
 def launch_dashboard() -> None:
     """Crea y lanza la ventana del dashboard. Bloquea hasta que se cierre."""
+    try:
+        _maybe_auto_launch()
+    except Exception:  # noqa: BLE001 — auto-launch nunca bloquea la apertura del dashboard
+        pass
+
     api = DashboardAPI()
 
     window = webview.create_window(

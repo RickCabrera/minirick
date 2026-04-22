@@ -66,11 +66,23 @@ def test_refresh_is_alias_of_get_active_task(sample_task: Task) -> None:
     assert result["task"]["title"] == "Tarea demo"
 
 
-def test_open_tool_returns_stub_message(sample_task: Task) -> None:
+def test_open_tool_calls_launcher(
+    sample_task: Task, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """open_tool debe delegar a launch_tool con la tool correcta."""
+    fake_result = {"ok": True, "message": "VSCode abierto en /x"}
+    called: dict[str, object] = {}
+
+    def fake_launch(tool):
+        called["tool"] = tool
+        return fake_result
+
+    monkeypatch.setattr("minirick.dashboard.api.launch_tool", fake_launch)
     with patch.object(api_module.service, "fetch_active_task", return_value=sample_task):
         result = DashboardAPI().open_tool(0)
-    assert result["ok"] is False
-    assert "Fase 4" in result["message"]
+
+    assert result == fake_result
+    assert called["tool"].type == "vscode"
 
 
 def test_open_tool_out_of_range(sample_task: Task) -> None:
