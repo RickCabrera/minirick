@@ -13,7 +13,14 @@
       "PowerShell(if \\(Test-Path \"src/minirick/dashboard/window.py\"\\) { $s=\\(Get-Item \"src/minirick/dashboard/window.py\"\\).Length; \"OK window.py size=$s\" } else { \"MISSING window.py\" })",
       "PowerShell(if \\(Test-Path \"src/minirick/dashboard/ui/app.js\"\\) { $s=\\(Get-Item \"src/minirick/dashboard/ui/app.js\"\\).Length; \"OK app.js size=$s\" } else { \"MISSING app.js\" })",
       "PowerShell(if \\(Test-Path \"src/minirick/dashboard/window.py\"\\) { $s=\\(Get-Item \"src/minirick/dashboard/window.py\"\\).Length; \"OK window.py size=$s\" } else { \"MISSING\" }; Select-String -Path \"src/minirick/dashboard/window.py\" -Pattern \"WINDOW_WIDTH|WINDOW_HEIGHT\" | ForEach-Object { \"L$\\($_.LineNumber\\): $\\($_.Line.Trim\\(\\)\\)\" })",
-      "PowerShell(Test-Path *)"
+      "PowerShell(Test-Path *)",
+      "PowerShell(.venv\\\\Scripts\\\\python.exe -m pip install -e \".[dev]\" 2>&1 | Select-Object -Last 15)",
+      "PowerShell(Test-Path src\\\\minirick\\\\frontmatter.py; \\(Get-Item src\\\\minirick\\\\frontmatter.py\\).Length; Select-String -Path src\\\\minirick\\\\frontmatter.py -Pattern \"yaml.safe_load\")",
+      "PowerShell(Test-Path src\\\\minirick\\\\editor.py; \\(Get-Item src\\\\minirick\\\\editor.py\\).Length; Select-String -Path src\\\\minirick\\\\editor.py -Pattern \"shlex.split\")",
+      "PowerShell(Test-Path src\\\\minirick\\\\admin.py; \\(Get-Item src\\\\minirick\\\\admin.py\\).Length; Select-String -Path src\\\\minirick\\\\admin.py -Pattern \"def require_admin\"; Select-String -Path src\\\\minirick\\\\admin.py -Pattern \"def resolve_assignees\"; Select-String -Path src\\\\minirick\\\\admin.py -Pattern \"AdminPermissionError\")",
+      "PowerShell(.venv\\\\Scripts\\\\python.exe -m pytest -q 2>&1 | Select-Object -Last 60)",
+      "PowerShell(.venv\\\\Scripts\\\\python.exe -m ruff check src/ tests/ 2>&1)",
+      "PowerShell(.venv\\\\Scripts\\\\python.exe -c \"import yaml; print\\('pyyaml', yaml.__version__\\)\")"
     ]
   }
 }

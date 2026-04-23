@@ -12,7 +12,8 @@ from rich.prompt import Prompt
 from rich.table import Table
 from rich.text import Text
 
-from minirick import __version__
+from minirick import __version__, admin, editor
+from minirick.admin import AdminError
 from minirick.auth import (
     AuthError,
     ensure_session,
@@ -25,7 +26,9 @@ from minirick.auth import (
 )
 from minirick.config import get_cache_dir, get_session_file
 from minirick.db import get_client
-from minirick.models import Task
+from minirick.editor import EditorError
+from minirick.frontmatter import FrontmatterError
+from minirick.models import Profile, Task
 
 app = typer.Typer(
     name="minirick",
@@ -198,23 +201,171 @@ def list_tasks() -> None:
     console.print(table)
 
 
+def _handle_admin_error(exc: Exception) -> typer.Exit:
+    """Imprime un error amigable en español y devuelve typer.Exit(1)."""
+    console.print(f"[red]✖ {exc}[/red]")
+    return typer.Exit(code=1)
+
+
 @app.command()
 def new() -> None:
-    """Crea una nueva tarea (solo admin). [dim](Fase 5)[/dim]"""
-    console.print("[yellow]⚠ new aún no implementado — llega en Fase 5.[/yellow]")
+    """Crea una nueva tarea (solo admin/owner).
+
+    Abre tu editor con un template markdown+YAML. Al guardar y cerrar,
+    la tarea se sube a Supabase. Si el contenido queda igual al template
+    o vacío, no se crea nada.
+    """
+    _require_session()
+    try:
+        admin.require_admin()
+    except AdminError as exc:
+        raise _handle_admin_error(exc) from exc
+
+    try:
+        md = editor.open_in_editor(admin.NEW_TASK_TEMPLATE)
+    except EditorError as exc:
+        raise _handle_admin_error(exc) from exc
+
+    if not md.strip() or md.strip() == admin.NEW_TASK_TEMPLATE.strip():
+        console.print("[yellow]⚠ Tarea vacía, no se creó nada.[/yellow]")
+        raise typer.Exit(code=0)
+
+    try:
+        fields = admin.markdown_to_task_fields(md)
+    except (FrontmatterError, AdminError) as exc:
+        raise _handle_admin_error(exc) from exc
+
+    title = fields.get("title", "").strip()
+    if not title or title == "Título de la tarea":
+        console.print(
+            "[yellow]⚠ La tarea necesita un título diferente al del template.[/yellow]"
+        )
+        raise typer.Exit(code=1)
+
+    assignee_emails = fields.pop("_assignee_emails", None)
+    if assignee_emails is not None:
+        try:
+            fields["assignees"] = admin.resolve_assignees(assignee_emails)
+        except AdminError as exc:
+            raise _handle_admin_error(exc) from exc
+
+    try:
+        task = admin.create_task(fields)
+    except AdminError as exc:
+        raise _handle_admin_error(exc) from exc
+    except APIError as exc:
+        console.print(f"[red]✖ Error de Supabase:[/red] {exc.message or exc}")
+        raise typer.Exit(code=1) from exc
+
+    console.print(
+        f"[green]✓[/green] Tarea creada: [bold]{task.title}[/bold] "
+        f"[dim]({task.id})[/dim]"
+    )
 
 
 @app.command()
 def edit(task_id: str = typer.Argument(..., help="ID de la tarea a editar")) -> None:
-    """Edita una tarea existente (solo admin). [dim](Fase 5)[/dim]"""
-    console.print(f"[yellow]⚠ edit {task_id} aún no implementado — llega en Fase 5.[/yellow]")
+    """Edita una tarea existente (solo admin/owner).
+
+    Descarga la tarea, la abre en tu editor con frontmatter YAML, y al
+    guardar sube los cambios. Si quitas un campo del frontmatter, ese
+    campo queda sin cambios en Supabase.
+    """
+    _require_session()
+    try:
+        admin.require_admin()
+    except AdminError as exc:
+        raise _handle_admin_error(exc) from exc
+
+    try:
+        task = admin.fetch_task(task_id)
+        profiles = admin.list_profiles()
+    except AdminError as exc:
+        raise _handle_admin_error(exc) from exc
+    except APIError as exc:
+        console.print(f"[red]✖ Error de Supabase:[/red] {exc.message or exc}")
+        raise typer.Exit(code=1) from exc
+
+    profiles_by_id: dict[str, Profile] = {p.id: p for p in profiles}
+    initial = admin.task_to_markdown(task, profiles_by_id)
+
+    try:
+        md = editor.open_in_editor(initial)
+    except EditorError as exc:
+        raise _handle_admin_error(exc) from exc
+
+    if md.strip() == initial.strip():
+        console.print("[yellow]Sin cambios — la tarea no se modificó.[/yellow]")
+        raise typer.Exit(code=0)
+
+    try:
+        fields = admin.markdown_to_task_fields(md)
+    except (FrontmatterError, AdminError) as exc:
+        raise _handle_admin_error(exc) from exc
+
+    assignee_emails = fields.pop("_assignee_emails", None)
+    if assignee_emails is not None:
+        try:
+            fields["assignees"] = admin.resolve_assignees(assignee_emails)
+        except AdminError as exc:
+            raise _handle_admin_error(exc) from exc
+
+    try:
+        updated = admin.update_task(task_id, fields)
+    except AdminError as exc:
+        raise _handle_admin_error(exc) from exc
+    except APIError as exc:
+        console.print(f"[red]✖ Error de Supabase:[/red] {exc.message or exc}")
+        raise typer.Exit(code=1) from exc
+
+    console.print(
+        f"[green]✓[/green] Tarea actualizada: [bold]{updated.title}[/bold] "
+        f"[dim]({updated.id})[/dim]"
+    )
 
 
 @app.command(name="set-active")
-def set_active(task_id: str = typer.Argument(..., help="ID de la tarea")) -> None:
-    """Marca una tarea como la activa del equipo (solo admin). [dim](Fase 5)[/dim]"""
+def set_active(
+    task_id: str = typer.Argument(..., help="ID de la tarea"),
+    assignees: str | None = typer.Option(
+        None,
+        "--assignees",
+        "-a",
+        help='Emails separados por coma. Vacío ("") = pública. Omitir = no toca.',
+    ),
+) -> None:
+    """Marca una tarea como activa del equipo. Con --assignees reemplaza los
+    colaboradores asignados; sin el flag solo activa sin tocar assignees.
+    Usa --assignees "" (vacío) para marcar la tarea como pública."""
+    _require_session()
+    try:
+        admin.require_admin()
+    except AdminError as exc:
+        raise _handle_admin_error(exc) from exc
+
+    data: dict[str, object] = {"is_active": True}
+
+    if assignees is not None:
+        if assignees == "":
+            data["assignees"] = []
+        else:
+            emails = [part.strip() for part in assignees.split(",") if part.strip()]
+            try:
+                data["assignees"] = admin.resolve_assignees(emails)
+            except AdminError as exc:
+                raise _handle_admin_error(exc) from exc
+
+    try:
+        task = admin.update_task(task_id, data)
+    except AdminError as exc:
+        raise _handle_admin_error(exc) from exc
+    except APIError as exc:
+        console.print(f"[red]✖ Error de Supabase:[/red] {exc.message or exc}")
+        raise typer.Exit(code=1) from exc
+
     console.print(
-        f"[yellow]⚠ set-active {task_id} aún no implementado — llega en Fase 5.[/yellow]"
+        f"[green]✓[/green] Tarea activa: [bold]{task.title}[/bold] "
+        f"[dim]({task.id})[/dim]"
     )
 
 

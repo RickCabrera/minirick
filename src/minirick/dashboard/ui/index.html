@@ -45,6 +45,33 @@
         <div class="state-hint">ask your admin to set one</div>
       </section>
 
+      <section id="admin-panel" class="admin-panel" hidden>
+        <div class="admin-header">
+          <span class="section-header-label">ADMIN PANEL</span>
+          <button id="btn-admin-close" class="admin-close" title="Cerrar panel">[x]</button>
+        </div>
+
+        <div class="admin-body">
+          <div class="admin-section">
+            <div class="section-subheader">
+              <span class="section-header-label">TEAM</span>
+            </div>
+            <div id="admin-profiles" class="admin-profiles">
+              <div class="empty-inline">cargando...</div>
+            </div>
+          </div>
+
+          <div class="admin-section">
+            <div class="section-subheader">
+              <span class="section-header-label">TASKS</span>
+            </div>
+            <div id="admin-tasks" class="admin-tasks">
+              <div class="empty-inline">cargando...</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section id="state-task" hidden>
         <div class="grid-top">
           <div class="panel panel-task">

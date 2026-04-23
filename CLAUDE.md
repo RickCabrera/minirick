@@ -156,17 +156,15 @@ Implementar:
 - Bug C: mensaje "Código de 6 dígitos" incorrecto.
 - Bug D: banner siempre aparece aunque se abra dashboard.
 
-### ⏳ Fase 4 — Launcher de herramientas
-- `src/minirick/launcher.py` — dispatcher por `tool.type` con branches Mac/Windows.
-- Detectar SO con `platform.system()`.
-- Mapeos:
-  - `claude_code` → `claude` en PATH (validar antes) con `cwd=tool.path`.
-  - `vscode` → `code <path>`.
-  - `browser` → `open <url>` (Mac) / `start <url>` (Win).
-  - `file` → abrir con app default del sistema.
-  - `notepad` → crear temp file con contenido y abrir.
-  - `terminal` → nueva ventana de terminal con `cwd` y opcionalmente corriendo `command`.
-- Al correr `minirick` (sin subcomando): primero abre dashboard, luego lanza tools de la tarea activa en paralelo.
+### ✅ Fase 4 — Launcher de herramientas (COMPLETADA)
+- `src/minirick/launcher.py` con 6 handlers (vscode, claude_code, browser, file, notepad, terminal) cross-platform Mac/Windows.
+- `shutil.which` valida VSCode y Claude Code; errores amigables con links de instalación.
+- Fix Windows: vscode se lanza con `shell=True` porque `code` es un wrapper `.cmd`.
+- Sanitización de `DANGEROUS_CHARS` bloquea shell injection en `terminal.command`.
+- `api.py` `open_tool` delega a `launcher.launch_tool` (ya no es stub).
+- `window.py` `_maybe_auto_launch` se ejecuta antes de `webview.start`; cache en `state.json` evita re-lanzar tools si la tarea activa no cambió.
+- `config.py` con `get_state_file` / `load_state` / `save_state`.
+- Tests: 58 total (13 nuevos en `test_launcher` + 2 en `test_config` + fix Windows).
 
 ### ⏳ Fase 5 — Admin panel (CRUD + invitaciones)
 - `minirick new` → abre editor ($EDITOR o notepad/TextEdit) con template markdown precargado, parsea frontmatter YAML para metadata, sube a Supabase.

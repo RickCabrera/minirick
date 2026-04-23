@@ -5,11 +5,18 @@
 
   const STATE_IDS = ['state-loading', 'state-error', 'state-empty', 'state-task'];
 
+  // Último estado visible antes de abrir el panel admin, para poder volver.
+  let _lastVisibleStateId = 'state-task';
+  let _currentRole = null;
+  let _profilesCache = [];
+  let _tasksCache = [];
+
   function showState(stateId) {
     for (const id of STATE_IDS) {
       const el = document.getElementById(id);
       if (el) el.hidden = id !== stateId;
     }
+    _lastVisibleStateId = stateId;
   }
 
   function showToast(msg) {
@@ -122,6 +129,8 @@
       if (emailEl) emailEl.textContent = '(sin sesión)';
       if (roleEl) roleEl.textContent = '';
       if (avatarEl) avatarEl.textContent = '?';
+      _currentRole = null;
+      applyRoleVisibility();
       return;
     }
 
@@ -131,6 +140,195 @@
     if (emailEl) emailEl.textContent = email;
     if (roleEl) roleEl.textContent = role;
     if (avatarEl) avatarEl.textContent = email.length > 0 ? email[0].toUpperCase() : '?';
+
+    _currentRole = role;
+    applyRoleVisibility();
+  }
+
+  function applyRoleVisibility() {
+    // Solo admin/owner ven el botón de config que abre el panel admin.
+    const btn = document.getElementById('btn-config-side');
+    if (!btn) return;
+    const isAdmin = _currentRole === 'admin' || _currentRole === 'owner';
+    btn.hidden = !isAdmin;
+  }
+
+  // ---------- Admin panel ----------
+
+  function openAdminPanel() {
+    const panel = document.getElementById('admin-panel');
+    if (!panel) return;
+    // Ocultar cualquier state-* activo.
+    STATE_IDS.forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el && !el.hidden) {
+        _lastVisibleStateId = id;
+        el.hidden = true;
+      }
+    });
+    panel.hidden = false;
+
+    const profilesEl = document.getElementById('admin-profiles');
+    const tasksEl = document.getElementById('admin-tasks');
+    if (profilesEl) profilesEl.innerHTML = '<div class="empty-inline">cargando...</div>';
+    if (tasksEl) tasksEl.innerHTML = '<div class="empty-inline">cargando...</div>';
+
+    Promise.all([
+      window.pywebview.api.list_profiles(),
+      window.pywebview.api.list_all_tasks(),
+    ])
+      .then(function (results) {
+        const profRes = results[0];
+        const taskRes = results[1];
+
+        if (!profRes || !profRes.ok) {
+          _profilesCache = [];
+          if (profilesEl) {
+            profilesEl.innerHTML =
+              '<div class="empty-inline">No tienes permiso o no hay perfiles.</div>';
+          }
+        } else {
+          _profilesCache = profRes.data || [];
+          renderAdminProfiles(_profilesCache);
+        }
+
+        if (!taskRes || !taskRes.ok) {
+          _tasksCache = [];
+          if (tasksEl) {
+            tasksEl.innerHTML =
+              '<div class="empty-inline">No se pudieron leer las tareas: ' +
+              escapeHtml((taskRes && taskRes.error) || '') +
+              '</div>';
+          }
+        } else {
+          _tasksCache = taskRes.data || [];
+          renderAdminTasks(_tasksCache, _profilesCache);
+        }
+      })
+      .catch(function (e) {
+        showToast('Error: ' + e);
+      });
+  }
+
+  function closeAdminPanel() {
+    const panel = document.getElementById('admin-panel');
+    if (panel) panel.hidden = true;
+    const target = _lastVisibleStateId || 'state-task';
+    const el = document.getElementById(target);
+    if (el) el.hidden = false;
+  }
+
+  function renderAdminProfiles(profiles) {
+    const el = document.getElementById('admin-profiles');
+    if (!el) return;
+    if (!profiles || profiles.length === 0) {
+      el.innerHTML = '<div class="empty-inline">Sin perfiles.</div>';
+      return;
+    }
+    el.innerHTML = profiles
+      .map(function (p) {
+        return (
+          '<div class="admin-profile-row">' +
+          '<span class="admin-profile-email">' +
+          escapeHtml(p.email || '') +
+          '</span>' +
+          '<span class="admin-profile-role">' +
+          escapeHtml(p.role || '') +
+          '</span>' +
+          '</div>'
+        );
+      })
+      .join('');
+  }
+
+  function renderAdminTasks(tasks, profiles) {
+    const el = document.getElementById('admin-tasks');
+    if (!el) return;
+    if (!tasks || tasks.length === 0) {
+      el.innerHTML = '<div class="empty-inline">Sin tareas.</div>';
+      return;
+    }
+    const emailsById = {};
+    (profiles || []).forEach(function (p) {
+      emailsById[p.id] = p.email;
+    });
+    el.innerHTML = tasks
+      .map(function (task) {
+        const assigneeIds = task.assignees || [];
+        const assigneeSet = {};
+        assigneeIds.forEach(function (id) {
+          assigneeSet[id] = true;
+        });
+
+        const checkboxesHtml = (profiles || [])
+          .map(function (p) {
+            const checked = assigneeSet[p.id] ? 'checked' : '';
+            return (
+              '<label class="assignee-checkbox">' +
+              '<input type="checkbox" data-email="' +
+              escapeHtml(p.email || '') +
+              '" ' +
+              checked +
+              ' /> ' +
+              escapeHtml(p.email || '') +
+              '</label>'
+            );
+          })
+          .join('');
+
+        const activeMark = task.is_active ? '[active]' : '[activar]';
+        return (
+          '<div class="admin-task-row" data-task-id="' +
+          escapeHtml(task.id) +
+          '">' +
+          '<div class="admin-task-head">' +
+          '<span class="admin-task-title">' +
+          escapeHtml(task.title || '(sin título)') +
+          '</span>' +
+          renderStatusBadge(task.status) +
+          '<button class="admin-activate-btn" data-task-id="' +
+          escapeHtml(task.id) +
+          '">' +
+          activeMark +
+          '</button>' +
+          '</div>' +
+          '<div class="admin-task-assignees">' +
+          (checkboxesHtml || '<span class="empty-inline">(sin colabs)</span>') +
+          '</div>' +
+          '</div>'
+        );
+      })
+      .join('');
+
+    el.querySelectorAll('.admin-activate-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const tid = btn.getAttribute('data-task-id');
+        const row = el.querySelector(
+          '.admin-task-row[data-task-id="' + tid.replace(/"/g, '') + '"]'
+        );
+        const checked = [];
+        if (row) {
+          row
+            .querySelectorAll('input[type="checkbox"]')
+            .forEach(function (cb) {
+              if (cb.checked) checked.push(cb.getAttribute('data-email'));
+            });
+        }
+        window.pywebview.api
+          .set_task_active(tid, checked)
+          .then(function (r) {
+            if (!r || !r.ok) {
+              showToast('Error: ' + ((r && r.error) || 'desconocido'));
+            } else {
+              showToast('Tarea activada');
+              openAdminPanel(); // refresca la vista
+            }
+          })
+          .catch(function (e) {
+            showToast('Error: ' + e);
+          });
+      });
+    });
   }
 
   function wireHeaderButtons() {
@@ -183,14 +381,23 @@
       });
     }
 
-    // Botón config de la sidebar (mismo comportamiento que el antiguo btn-config)
+    // Botón config de la sidebar → abre/cierra el panel admin (solo admin/owner lo ve).
     const cfgSideBtn = document.getElementById('btn-config-side');
     if (cfgSideBtn) {
       cfgSideBtn.addEventListener('click', function () {
-        window.pywebview.api.open_config().then(function (r) {
-          showToast((r && r.message) || 'Configuración llega en Fase 5');
-        });
+        const panel = document.getElementById('admin-panel');
+        if (panel && !panel.hidden) {
+          closeAdminPanel();
+        } else {
+          openAdminPanel();
+        }
       });
+    }
+
+    // Botón cerrar del panel admin.
+    const adminCloseBtn = document.getElementById('btn-admin-close');
+    if (adminCloseBtn) {
+      adminCloseBtn.addEventListener('click', closeAdminPanel);
     }
   }
 

@@ -91,6 +91,7 @@ class Task:
     tools: list[Tool] = field(default_factory=list)
     status: TaskStatus = "todo"
     is_active: bool = False
+    assignees: list[str] = field(default_factory=list)
     created_by: str | None = None
     updated_by: str | None = None
     created_at: str | None = None
@@ -108,6 +109,7 @@ class Task:
             tools=tools,
             status=data.get("status", "todo"),
             is_active=bool(data.get("is_active", False)),
+            assignees=list(data.get("assignees") or []),
             created_by=data.get("created_by"),
             updated_by=data.get("updated_by"),
             created_at=data.get("created_at"),
@@ -123,6 +125,7 @@ class Task:
             "tools": [t.to_dict() for t in self.tools],
             "status": self.status,
             "is_active": self.is_active,
+            "assignees": list(self.assignees),
             "created_by": self.created_by,
             "updated_by": self.updated_by,
             "created_at": self.created_at,
